@@ -2,7 +2,9 @@ from torch import nn
 from typing import List
 
 class APNN(nn.Module):
+
     def __init__(self, input_channels : int, kernels : List[int]):
+
         super().__init__()
 
         self.paddings = [int((kernel - 1)/2) for kernel in kernels]
@@ -25,6 +27,7 @@ class APNN(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x):
+        
         out = self.relu(self.conv1(x))
         out = self.relu(self.conv2(out))
         out = self.conv3(out)
