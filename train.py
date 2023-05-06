@@ -142,7 +142,7 @@ def train(args):
 
         if valid_loss < min_valid_loss:
             min_valid_loss = valid_loss
-            model_path = model_name + '_weights' + 'epoch_' + str(epoch) + '.pth'
+            model_path = model_name + '_weights_' + 'epoch_' + str(epoch) + '.pth'
             output_path = os.path.join(output_folder, model_path)
             torch.save(model.state_dict(), output_path)
 
