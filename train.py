@@ -17,7 +17,7 @@ def train(args):
     device = 'cuda' if (torch.cuda.is_available() and use_gpu) else 'cpu'
     
     sensor_name = args.sensor
-    s = Sensor(sensor_name)
+    s = Sensor(sensor=sensor_name)
 
     # Hyperparameters
     epochs = args.epochs
