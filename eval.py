@@ -31,7 +31,8 @@ def eval(args):
         model = APNN(input_channels=s.nbands+1,
                      kernels=s.kernels).to(device)
     
-    model.load_state_dict(torch.load(weights_path, map_location=torch.device(device)))
+    model.load_state_dict(torch.load(f=weights_path,
+                                     map_location=torch.device(device)))
 
     SAM_value = 0
     ERGAS_value = 0
