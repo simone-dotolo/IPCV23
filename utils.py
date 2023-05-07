@@ -1,5 +1,4 @@
-from math import ceil
-
+from math import ceil, floor
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -152,3 +151,24 @@ def xcorr_torch(img_1, img_2, half_width, device):
     L = sig2_ij_tot / ((sig2_ii_tot * sig2_jj_tot) ** 0.5 + ep)
 
     return L
+
+def net_scope(kernel_size):
+    """
+        Compute the network scope.
+
+        Parameters
+        ----------
+        kernel_size : List[int]
+            A list containing the kernel size of each layer of the network.
+
+        Return
+        ------
+        scope : int
+            The scope of the network
+
+        """
+
+    scope = 0
+    for i in range(len(kernel_size)):
+        scope += floor(kernel_size[i] / 2)
+    return scope

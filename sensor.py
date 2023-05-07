@@ -1,3 +1,5 @@
+from utils import net_scope
+
 class Sensor:
 
     def __init__(self, sensor):
@@ -15,6 +17,7 @@ class Sensor:
         elif (sensor == 'WV2') or (sensor == 'WV3'):
             self.nbands = 8
             
+        self.net_scope = net_scope(self.kernels)
         self.nbits = 11
 
         if sensor == 'WV2' or sensor == 'WV3':
