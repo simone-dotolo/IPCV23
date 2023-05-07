@@ -3,6 +3,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 from data import PAN_Dataset
 from sensor import Sensor
+from losses import SpectralStructuralLoss
 from early_stopper import EarlyStopper 
 from networks import APNN
 from tqdm.auto import tqdm
@@ -18,6 +19,8 @@ def train(args):
     
     sensor_name = args.sensor
     s = Sensor(sensor=sensor_name)
+
+    full_resolution = args.full_resolution
 
     # Hyperparameters
     epochs = args.epochs
@@ -40,9 +43,11 @@ def train(args):
 
     # Getting datasets
     train_dataset = PAN_Dataset(images_dir=train_path,
-                                sensor=s)
+                                sensor=s,
+                                full_resolution=full_resolution)
     valid_dataset = PAN_Dataset(images_dir=valid_path,
-                                sensor=s)
+                                sensor=s,
+                                full_resolution=full_resolution)
 
     # Creating dataloaders
     train_dataloader = DataLoader(dataset=train_dataset,
@@ -61,7 +66,11 @@ def train(args):
                      kernels=s.kernels).to(device)
 
     # Loss
-    if loss_name == 'L1':
+    if full_resolution:
+        print('Working in FULL RESOLUTION. Ignoring loss args...\n')
+        loss_fn = SpectralStructuralLoss(device=device,
+                                         sensor=s)
+    elif loss_name == 'L1':
         loss_fn = nn.L1Loss()
     elif loss_name == 'L2':
         loss_fn = nn.MSELoss()
@@ -160,6 +169,8 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--val_fold', type=str, help='Path to validation set', required=True)
     parser.add_argument('-o', '--out_fold', type=str, help='Path to output folder', required=True)
     parser.add_argument('--use_gpu', type=bool, action=argparse.BooleanOptionalAction, help='Enable GPU usage', required=False, default=False)
+    parser.add_argument('--full_resolution', type=bool, action=argparse.BooleanOptionalAction, help='Working in the FULL RESOLUTION Framework', required=False, default=False)
+
     # Hyperparams
     parser.add_argument('--batch', type=int, help='Batch size', required=False, default=16)
     parser.add_argument('--lr', type=float, help='Initial learning rate', required=False, default=1e-3)

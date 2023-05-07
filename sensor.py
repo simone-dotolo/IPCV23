@@ -16,3 +16,8 @@ class Sensor:
             self.nbands = 8
             
         self.nbits = 11
+
+        if sensor == 'WV2' or sensor == 'WV3':
+            self.beta = 0.36
+        elif (sensor == 'GE1') or (sensor == 'GeoEye1'):
+            self.beta = 0.25
