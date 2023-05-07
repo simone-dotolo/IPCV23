@@ -7,6 +7,7 @@ from losses import SpectralStructuralLoss
 from early_stopper import EarlyStopper 
 from networks import APNN
 from tqdm.auto import tqdm
+from scipy.io import loadmat
 import numpy as np
 import argparse
 import os
@@ -68,7 +69,11 @@ def train(args):
     # Loss
     if full_resolution:
         print('Working in FULL RESOLUTION. Ignoring loss args...\n')
-        loss_fn = SpectralStructuralLoss(device=device,
+        I = loadmat(train_path)
+        I_PAN, I_MS = I['I_PAN'], I['I_MS']
+        loss_fn = SpectralStructuralLoss(img_pan=I_PAN,
+                                         img_ms=I_MS,
+                                         device=device,
                                          sensor=s)
     elif loss_name == 'L1':
         loss_fn = nn.L1Loss()
