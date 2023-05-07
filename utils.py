@@ -4,6 +4,9 @@ import torch
 import torch.nn.functional as F
 from skimage.transform.integral import integral_image as integral
 
+'''
+    Reference: https://github.com/matciotola/Z-PNN/blob/master/cross_correlation.py
+'''
 
 def xcorr(img_1, img_2, half_width):
     """

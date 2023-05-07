@@ -81,6 +81,8 @@ class StructuralLoss(nn.Module):
     
 class SpectralStructuralLoss(nn.Module):
 
+    # Linear combination of SpectralLoss and StructuralLoss
+
     def __init__(self, img_pan, img_ms, device, sensor):
         super().__init__()
         self.device = device
@@ -93,7 +95,7 @@ class SpectralStructuralLoss(nn.Module):
                                                              self.img_ms),
                                       sensor.ratio,
                                       self.device)
-        self.struct_loss = StructuralLoss(sensor.ratio, self.device)
+        self.struct_loss = StructuralLoss(sensor.ratio, self.device) 
 
     def forward(self, outputs, labels):
 

@@ -31,13 +31,15 @@ def main(args):
 
     I_PAN, I_MS = I['I_PAN'], I['I_MS']
 
+    # I_in concatenation of I_MS upsampled to I_PAN dimensions and I_PAN
     I_MS_UP = rescale(image=I_MS,
                       scale=[s.ratio, s.ratio, 1],
                       order=3)
     
     I_PAN = np.expand_dims(I_PAN, axis=-1)
 
-    I_in = np.concatenate([I_PAN, I_MS_UP], axis=-1) / (2 ** s.nbits)
+    # Normalization
+    I_in = np.concatenate([I_MS_UP, I_PAN], axis=-1) / (2 ** s.nbits)
 
     I_in = torch.from_numpy(I_in).permute([2,0,1]).unsqueeze(dim=0).to(device)
 

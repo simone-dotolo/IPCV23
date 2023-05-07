@@ -13,8 +13,6 @@ def eval(args):
     use_gpu = args.use_gpu
     device = 'cuda' if (torch.cuda.is_available() and use_gpu) else 'cpu'
 
-    print(device)
-
     model_name = args.model
     weights_path = args.weights
     test_path = args.test_fold 

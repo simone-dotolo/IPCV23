@@ -1,8 +1,11 @@
 import numpy as np
 import scipy.ndimage.filters as ft
 import torch
-
 from utils import xcorr
+
+'''
+    Reference: https://github.com/matciotola/Z-PNN/blob/master/spectral_tools.py
+'''
 
 
 def fspecial_gauss(size, sigma):

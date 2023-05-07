@@ -18,6 +18,7 @@ def train(args):
     use_gpu = args.use_gpu
     device = 'cuda' if (torch.cuda.is_available() and use_gpu) else 'cpu'
     
+    # Sensor
     sensor_name = args.sensor
     s = Sensor(sensor=sensor_name)
 
@@ -67,6 +68,7 @@ def train(args):
                      kernels=s.kernels).to(device)
 
     # Loss
+    # TODO: fix full_resolution loss (SpectralLoss not working)
     if full_resolution:
         print('Working in FULL RESOLUTION. Ignoring loss args...\n')
         I = loadmat(train_path)
