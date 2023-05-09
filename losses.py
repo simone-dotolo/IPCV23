@@ -1,23 +1,27 @@
 from math import floor, ceil
-from spectral_tools import generate_mtf_variables
+from spectral_tools import gen_mtf
 import numpy as np
 import torch
 import torch.nn as nn
 from utils import xcorr_torch as ccorr
 
-class SpectralLoss(nn.Module):
-    def __init__(self, mtf, ratio, device):
-        # Class initialization
-        super(SpectralLoss, self).__init__()
+class SpectralLossNocorr(nn.Module):
+    def __init__(self, mtf, net_crop, pan_shape, ratio, device, mask=None):
 
-        # Parameters definition
+        # Class initialization
+        super(SpectralLossNocorr, self).__init__()
         kernel = mtf
+        # Parameters definition
         self.nbands = kernel.shape[-1]
-        self.ratio = ratio
+        self.net_scope = net_crop
         self.device = device
+        self.ratio = ratio
+
         # Conversion of filters in Tensor
-        self.pad_x = floor((kernel.shape[0] - 1) / 2)
-        self.pad_y = floor((kernel.shape[1] - 1) / 2)
+        self.MTF_r = 2
+        self.MTF_c = 2
+        self.pad = floor((kernel.shape[0] - 1) / 2)
+
         kernel = np.moveaxis(kernel, -1, 0)
         kernel = np.expand_dims(kernel, axis=1)
 
@@ -28,6 +32,7 @@ class SpectralLoss(nn.Module):
                                    out_channels=self.nbands,
                                    groups=self.nbands,
                                    kernel_size=kernel.shape,
+                                   padding='same',
                                    bias=False)
 
         self.depthconv.weight.data = kernel
@@ -35,16 +40,25 @@ class SpectralLoss(nn.Module):
 
         self.loss = nn.L1Loss(reduction='sum')
 
-    def forward(self, outputs, labels, r, c):
+        # Mask definition
+        if mask is not None:
+            self.mask = mask
+        else:
+            self.mask = torch.ones((1, self.nbands, pan_shape[-2],
+                                    pan_shape[-1]), device=self.device)
+            
+    def forward(self, outputs, labels):
+
         x = self.depthconv(outputs)
-        labels = labels[:, :, self.pad_x:-self.pad_x, self.pad_y:-self.pad_y]
+
+        #labels = labels[:, :, self.pad:-self.pad, self.pad:-self.pad]
+        
         y = torch.zeros(x.shape, device=self.device)
         W_ = torch.zeros(x.shape, device=self.device)
-        mask = torch.ones(x.shape, device=self.device)
 
         for b in range(self.nbands):
-            y[:, b, r[b]::self.ratio, c[b]::self.ratio] = labels[:, b, 2::self.ratio, 2::self.ratio]
-            W_[:, b, r[b]::self.ratio, c[b]::self.ratio] = mask[:, b, 2::self.ratio, 2::self.ratio]
+            y[:, b, self.MTF_r::self.ratio, self.MTF_c::self.ratio] = labels[:, b, 2::self.ratio, 2::self.ratio]
+            W_[:, b, self.MTF_r::self.ratio, self.MTF_c::self.ratio] = self.mask[:, b, 2::self.ratio, 2::self.ratio]
 
         W_ = W_ / torch.sum(W_)
 
@@ -83,24 +97,21 @@ class SpectralStructuralLoss(nn.Module):
 
     # Linear combination of SpectralLoss and StructuralLoss
 
-    def __init__(self, img_pan, img_ms, device, sensor):
+    def __init__(self, img_pan_shape, device, sensor):
         super().__init__()
         self.device = device
         self.beta = sensor.beta
-        self.img_pan = img_pan
-        self.img_ms = img_ms
-        self.spec_loss = SpectralLoss(generate_mtf_variables(sensor.ratio,
-                                                             sensor,
-                                                             self.img_pan,
-                                                             self.img_ms),
-                                      sensor.ratio,
-                                      self.device)
-        self.struct_loss = StructuralLoss(sensor.ratio, self.device) 
+        self.spec_loss = SpectralLossNocorr(gen_mtf(sensor.ratio,
+                                                    sensor.sensor),
+                                            sensor.net_scope,
+                                            img_pan_shape,
+                                            sensor.ratio,
+                                            self.device)
+        self.struct_loss = StructuralLoss(sensor.ratio, self.device)
 
     def forward(self, outputs, labels):
 
         labels_spec = labels[:,:-1,:,:]
         labels_struct = labels[:,-1,:,:].unsqueeze(dim=1)
         
-        return self.spec_loss(outputs, labels_spec) + self.beta * self.struct_loss(outputs, labels_struct)[0]
-        #return self.struct_loss(outputs, labels_struct, 0)[0]
+        return self.spec_loss(outputs, labels_spec) + self.beta * self.struct_loss(outputs, labels_struct, 0)[0]
