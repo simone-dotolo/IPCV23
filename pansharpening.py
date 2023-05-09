@@ -4,7 +4,7 @@ import numpy as np
 from networks import APNN
 from sensor import Sensor
 from skimage.transform import rescale
-from scipy.io import loadmat
+from scipy.io import loadmat, savemat
 from matplotlib import pyplot as plt
 
 
@@ -15,6 +15,7 @@ def main(args):
     input_path = args.input
     weights_path = args.weights
     use_gpu = args.use_gpu
+    output_path = args.output_path
 
     device = 'cuda' if (torch.cuda.is_available() and use_gpu) else 'cpu'
 
@@ -60,6 +61,8 @@ def main(args):
 
     plt.show()
 
+    savemat(output_path + 'pansharpened.mat', {'I_MS': output})
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
@@ -67,6 +70,7 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--model', type=str, help='Model to train', required=True, choices=['APNN'])
     parser.add_argument('-s', '--sensor', type=str, help='Sensor that acquired the image', required=True, choices=['QB', 'GE1', 'GeoEye1', 'WV2', 'WV3', 'Ikonos', 'IKONOS'])
     parser.add_argument('-i', '--input', type=str, help='Path to image that will be pansharpened', required=True)
+    parser.add_argument('-o', '--output_path', type=str, help='Path to output path', required=True)
     parser.add_argument('-w', '--weights', type=str, help='Path to models weights', required=True)
     parser.add_argument('--use_gpu', type=bool, action=argparse.BooleanOptionalAction, help='Enable GPU usage', required=False, default=False)
 
