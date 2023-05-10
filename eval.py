@@ -66,7 +66,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-m', '--model', type=str, help='Model to train', required=True, choices=['APNN'])
-    parser.add_argument('--weights', type=str, help='Path to model weights', required=True)
+    parser.add_argument('-w', '--weights', type=str, help='Path to model weights', required=True)
     parser.add_argument('-s', '--sensor', type=str, help='Sensor that acquired the image', required=True, choices=['QB', 'GE1', 'GeoEye1', 'WV2', 'WV3', 'Ikonos', 'IKONOS'])
     parser.add_argument('-t', '--test_fold', type=str, help='Path to training set', required=True)
     parser.add_argument('--use_gpu', type=bool, action=argparse.BooleanOptionalAction, help='Enable GPU usage', required=False, default=False)
