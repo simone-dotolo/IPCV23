@@ -67,13 +67,12 @@ def train(args):
                      kernels=s.kernels).to(device)
 
     # Loss
-    # TODO: fix full_resolution loss (SpectralLoss not working)
     if full_resolution:
         I_PAN_shape = tuple(train_dataset[0][0][0].shape)   
         print('Working in FULL RESOLUTION. Ignoring loss args...\n')
         loss_fn = SpectralStructuralLoss(img_pan_shape=I_PAN_shape,
                                          device=device,
-                                         sensor=s)
+                                         sensor=s).to(device)
     elif loss_name == 'L1':
         loss_fn = nn.L1Loss()
     elif loss_name == 'L2':
