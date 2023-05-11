@@ -1,10 +1,9 @@
+import argparse
 import torch
-from torch.utils.data import DataLoader
 from sensor import Sensor
 from networks import APNN
 from data import PAN_Dataset
-from metrics import SAM, ERGAS, Q, Q2n
-import argparse
+from metrics import SAM, ERGAS, Q, Q2n, ReproMetrics, DRho
 from tqdm.auto import tqdm
 
 def eval(args):
@@ -17,11 +16,14 @@ def eval(args):
     weights_path = args.weights
     test_path = args.test_fold 
     sensor_name = args.sensor
+    full_resolution = args.full_resolution
 
     s = Sensor(sensor=sensor_name)
 
     test_dataset = PAN_Dataset(images_dir=test_path,
-                               sensor=s)
+                               sensor=s,
+                               full_resolution=full_resolution,
+                               eval=True)
 
     model_name = args.model
 
@@ -36,30 +38,63 @@ def eval(args):
     ERGAS_value = 0
     Q_value = 0
     Q2n_value = 0
+    DRho_value = 0
 
     model.eval()
     with torch.inference_mode():
         
-        for X, y in tqdm(test_dataset):
-            
-            X, y = X.unsqueeze(dim=0).to(device), y.unsqueeze(dim=0).to(device)
+        if full_resolution:
+            for X, I_MS, I_PAN in tqdm(test_dataset):
+                
+                #X, I_MS, I_PAN = X.unsqueeze(dim=0).to(device), I_MS.unsqueeze(dim=0).to(device), I_PAN.unsqueeze(dim=0).to(device)
+                X = X.unsqueeze(dim=0).to(device)
 
-            output = model(X)
+                output = model(X)
 
-            output = torch.permute(output.squeeze(dim=0), [2, 1, 0]).detach().cpu().numpy()
-            y = torch.permute(y.squeeze(dim=0), [2, 1, 0]).detach().cpu().numpy()
+                output = torch.permute(output.squeeze(dim=0), [2, 1, 0]).detach().cpu().numpy()
+                #I_MS = torch.permute(I_MS.squeeze(dim=0), [2, 1, 0]).detach().cpu().numpy()
+                #I_PAN = I_PAN.squeeze(dim=(0,1)).detach().cpu().numpy()
+                I_MS = torch.permute(I_MS, [2, 1, 0]).detach().cpu().numpy()
+                I_PAN = I_PAN.squeeze(dim=0).detach().cpu().numpy()
 
-            SAM_value += SAM(output, y)
-            ERGAS_value += ERGAS(output, y, s.ratio)
-            Q_value += Q(output, y)
-            Q2n_value += Q2n(output, y)[0]        
+                q2n, q, sam, ergas = ReproMetrics(output, I_MS, I_PAN, s.sensor, s.ratio)
+                drho = DRho(output, I_PAN, sigma=s.ratio)
 
-    SAM_value /= len(test_dataset)
-    ERGAS_value /= len(test_dataset)
-    Q_value /= len(test_dataset)
-    Q2n_value /= len(test_dataset)
+                SAM_value += sam
+                ERGAS_value += ergas
+                Q_value += q
+                Q2n_value += q2n         
+                DRho_value += drho
 
-    print(f'SAM: {SAM_value} | ERGAS: {ERGAS_value} | Q: {Q_value} | Q2n: {Q2n_value}')
+            SAM_value /= len(test_dataset)
+            ERGAS_value /= len(test_dataset)
+            Q_value /= len(test_dataset)
+            Q2n_value /= len(test_dataset)
+            DRho_value /= len(test_dataset)
+
+            print(f'FULL RESOLUTION!\nSAM: {SAM_value} | ERGAS: {ERGAS_value} | Q: {Q_value} | Q2n: {Q2n_value} | DRho: {DRho_value}')
+        else:
+            for X, y in tqdm(test_dataset):
+                
+                #X, y = X.unsqueeze(dim=0).to(device), y.unsqueeze(dim=0).to(device)
+                X = X.unsqueeze(dim=0).to(device)
+                output = model(X)
+
+                output = torch.permute(output.squeeze(dim=0), [2, 1, 0]).detach().cpu().numpy()
+                #y = torch.permute(y.squeeze(dim=0), [2, 1, 0]).detach().cpu().numpy()
+                y = torch.permute(y, [2, 1, 0]).detach().cpu().numpy()
+
+                SAM_value += SAM(output, y)
+                ERGAS_value += ERGAS(output, y, s.ratio)
+                Q_value += Q(output, y)
+                Q2n_value += Q2n(output, y)[0]        
+
+            SAM_value /= len(test_dataset)
+            ERGAS_value /= len(test_dataset)
+            Q_value /= len(test_dataset)
+            Q2n_value /= len(test_dataset)
+            print(f'REDUCED RESOLUTION!\nSAM: {SAM_value} | ERGAS: {ERGAS_value} | Q: {Q_value} | Q2n: {Q2n_value}')
+
 
 if __name__ == '__main__':
 
@@ -70,7 +105,8 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--sensor', type=str, help='Sensor that acquired the image', required=True, choices=['QB', 'GE1', 'GeoEye1', 'WV2', 'WV3', 'Ikonos', 'IKONOS'])
     parser.add_argument('-t', '--test_fold', type=str, help='Path to training set', required=True)
     parser.add_argument('--use_gpu', type=bool, action=argparse.BooleanOptionalAction, help='Enable GPU usage', required=False, default=False)
-
+    parser.add_argument('--full_resolution', type=bool, action=argparse.BooleanOptionalAction, help='Working in the FULL RESOLUTION Framework', required=False, default=False)
+    
     args = parser.parse_args()
 
     eval(args)

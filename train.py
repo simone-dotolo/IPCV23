@@ -7,7 +7,6 @@ from losses import SpectralStructuralLoss
 from early_stopper import EarlyStopper 
 from networks import APNN
 from tqdm.auto import tqdm
-from scipy.io import loadmat
 import numpy as np
 import argparse
 import os

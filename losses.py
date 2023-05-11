@@ -1,9 +1,9 @@
-from math import floor, ceil
-from spectral_tools import gen_mtf
 import numpy as np
 import torch
 import torch.nn as nn
-from utils import xcorr_torch as ccorr
+from math import floor, ceil
+from spectral_tools import gen_mtf
+from cross_correlation import xcorr_torch as ccorr
 
 class SpectralLossNocorr(nn.Module):
     def __init__(self, mtf, net_crop, pan_shape, ratio, device, mask=None):

@@ -53,10 +53,10 @@ def main(args):
 
     plt.figure(figsize=(15,6))
 
-    plt.subplot(121)
+    ax1 = plt.subplot(121)
     plt.imshow(I_in[:,:,(4,2,1)])
 
-    plt.subplot(122)
+    plt.subplot(122, sharex=ax1, sharey=ax1)
     plt.imshow(output[:,:,(4,2,1)])
 
     plt.show()

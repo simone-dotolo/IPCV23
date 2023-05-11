@@ -1,159 +1,196 @@
-from math import ceil, floor
+from math import floor, log
 import numpy as np
 import torch
 import torch.nn.functional as F
-from skimage.transform.integral import integral_image as integral
+from torch import nn
+from scipy import ndimage as ndi
+from spectral_tools import gen_mtf
+from cross_correlation import xcorr
 
-'''
-    Reference: https://github.com/matciotola/Z-PNN/blob/master/cross_correlation.py
-'''
-
-def xcorr(img_1, img_2, half_width):
+def interp23tap(img, ratio):
     """
-        Cross-Correlation Field computation.
+        Polynomial (with 23 coefficients) interpolator Function.
+
+        For more details please refers to:
+
+        [1]  B. Aiazzi, L. Alparone, S. Baronti, and A. Garzelli - Context-driven fusion of high spatial and spectral
+             resolution images based on oversampled multiresolution analysis
+        [2] B. Aiazzi, S. Baronti, M. Selva, and L. Alparone - Bi-cubic interpolation for shift-free pan-sharpening
+        [3] G. Vivone, M. Dalla Mura, A. Garzelli, R. Restaino, G. Scarpa, M. Orn Ulfarsson, L. Alparone, J. Chanussot -
+            A new benchmark based on recent advances in multispectral pansharpening: Revisiting pansharpening with
+            classical and emerging pansharpening methods
+
 
         Parameters
         ----------
-        img_1 : Numpy Array
-            First image on which calculate the cross-correlation. Dimensions: H, W
-        img_2 : Numpy Array
-            Second image on which calculate the cross-correlation. Dimensions: H, W
-        half_width : int
-            The semi-size of the window on which calculate the cross-correlation
+        img : Numpy Array
+            Image to be scaled. Dimension: H, W, B
+        ratio : int
+            The desired scale. It must be a factor power of 2.
 
 
         Return
         ------
-        L : Numpy array
-            The cross-correlation map between img_1 and img_2
+        img : Numpy array
+            the interpolated img.
 
+        """
+    assert ((2 ** (round(log(ratio, 2)))) == ratio), 'Error: Only resize factors power of 2'
+
+    r, c, b = img.shape
+
+    CDF23 = np.asarray(
+        [0.5, 0.305334091185, 0, -0.072698593239, 0, 0.021809577942, 0, -0.005192756653, 0, 0.000807762146, 0,
+         -0.000060081482])
+    CDF23 = [element * 2 for element in CDF23]
+    BaseCoeff = np.expand_dims(np.concatenate([np.flip(CDF23[1:]), CDF23]), axis=-1)
+
+    for z in range(int(ratio / 2)):
+
+        I1LRU = np.zeros(((2 ** (z + 1)) * r, (2 ** (z + 1)) * c, b))
+
+        if z == 0:
+            I1LRU[1::2, 1::2, :] = img
+        else:
+            I1LRU[::2, ::2, :] = img
+
+        for i in range(b):
+            temp = ndi.convolve(np.transpose(I1LRU[:, :, i]), BaseCoeff, mode='wrap')
+            I1LRU[:, :, i] = ndi.convolve(np.transpose(temp), BaseCoeff, mode='wrap')
+
+        img = I1LRU
+
+    return img
+
+def coregistration(ms, pan, kernel, ratio=4, search_win=4):
     """
-    w = ceil(half_width)
-    ep = 1e-20
+        Coregitration function for MS-PAN pair.
 
-    if (len(img_1.shape)) != 3:
-        img_1 = np.expand_dims(img_1, axis=-1)
-    if (len(img_2.shape)) != 3:
-        img_2 = np.expand_dims(img_2, axis=-1)
-
-    img_1 = np.pad(img_1.astype(np.float64), ((w, w), (w, w), (0, 0)))
-    img_2 = np.pad(img_2.astype(np.float64), ((w, w), (w, w), (0, 0)))
-
-    img_1_cum = np.zeros(img_1.shape)
-    img_2_cum = np.zeros(img_2.shape)
-    for i in range(img_1.shape[-1]):
-        img_1_cum[:, :, i] = integral(img_1[:, :, i]).astype(np.float64)
-    for i in range(img_2.shape[-1]):
-        img_2_cum[:, :, i] = integral(img_2[:, :, i]).astype(np.float64)
-
-    img_1_mu = (img_1_cum[2 * w:, 2 * w:, :] - img_1_cum[:-2 * w, 2 * w:, :] - img_1_cum[2 * w:, :-2 * w,
-                                                                               :] + img_1_cum[:-2 * w, :-2 * w, :]) / (
-                       4 * w ** 2)
-    img_2_mu = (img_2_cum[2 * w:, 2 * w:, :] - img_2_cum[:-2 * w, 2 * w:, :] - img_2_cum[2 * w:, :-2 * w,
-                                                                               :] + img_2_cum[:-2 * w, :-2 * w, :]) / (
-                       4 * w ** 2)
-
-    img_1 = img_1[w:-w, w:-w, :] - img_1_mu
-    img_2 = img_2[w:-w, w:-w, :] - img_2_mu
-
-    img_1 = np.pad(img_1.astype(np.float64), ((w, w), (w, w), (0, 0)))
-    img_2 = np.pad(img_2.astype(np.float64), ((w, w), (w, w), (0, 0)))
-
-    i2 = img_1 ** 2
-    j2 = img_2 ** 2
-    ij = img_1 * img_2
-
-    i2_cum = np.zeros(i2.shape)
-    j2_cum = np.zeros(j2.shape)
-    ij_cum = np.zeros(ij.shape)
-
-    for i in range(i2_cum.shape[-1]):
-        i2_cum[:, :, i] = integral(i2[:, :, i]).astype(np.float64)
-    for i in range(j2_cum.shape[-1]):
-        j2_cum[:, :, i] = integral(j2[:, :, i]).astype(np.float64)
-    for i in range(ij_cum.shape[-1]):
-        ij_cum[:, :, i] = integral(ij[:, :, i]).astype(np.float64)
-
-    sig2_ij_tot = (ij_cum[2 * w:, 2 * w:, :] - ij_cum[:-2 * w, 2 * w:, :] - ij_cum[2 * w:, :-2 * w, :] + ij_cum[:-2 * w,
-                                                                                                         :-2 * w, :])
-    sig2_ii_tot = (i2_cum[2 * w:, 2 * w:, :] - i2_cum[:-2 * w, 2 * w:, :] - i2_cum[2 * w:, :-2 * w, :] + i2_cum[:-2 * w,
-                                                                                                         :-2 * w, :])
-    sig2_jj_tot = (j2_cum[2 * w:, 2 * w:, :] - j2_cum[:-2 * w, 2 * w:, :] - j2_cum[2 * w:, :-2 * w, :] + j2_cum[:-2 * w,
-                                                                                                         :-2 * w, :])
-
-    # sig2_ij_tot = np.clip(sig2_ij_tot, ep, sig2_ij_tot.max())
-    sig2_ii_tot = np.clip(sig2_ii_tot, ep, sig2_ii_tot.max())
-    sig2_jj_tot = np.clip(sig2_jj_tot, ep, sig2_jj_tot.max())
-
-    L = sig2_ij_tot / ((sig2_ii_tot * sig2_jj_tot) ** 0.5 + ep)
-
-    return L
-
-
-def xcorr_torch(img_1, img_2, half_width, device):
-    """
-        A PyTorch implementation of Cross-Correlation Field computation.
+        [Scarpa21]          Scarpa, Giuseppe, and Matteo Ciotola. "Full-resolution quality assessment for pansharpening.",
+                            arXiv preprint arXiv:2108.06144
 
         Parameters
         ----------
-        img_1 : Torch Tensor
-            First image on which calculate the cross-correlation. Dimensions: 1, 1, H, W
-        img_2 : Torch Tensor
-            Second image on which calculate the cross-correlation. Dimensions: 1, 1, H, W
-        half_width : int
-            The semi-size of the window on which calculate the cross-correlation
-        device : Torch Device
-            The device on which perform the operation.
-
+        ms : Numpy Array
+            The Multi-Spectral image. Dimensions: H, W, Bands
+        pan : Numpy Array
+            The PAN image. Dimensions: H, W
+        kernel : Numpy Array
+            The filter array.
+        ratio : int
+            PAN-MS resolution ratio
+        search_win : int
+            The windows in which search the optimal value for the coregistration step
 
         Return
         ------
-        L : Torch Tensor
-            The cross-correlation map between img_1 and img_2
-
+        r : Numpy Array
+            The optimal raw values.
+        c : Numpy Array
+            The optimal column values.
     """
-    w = ceil(half_width)
-    ep = 1e-20
-    img_1 = img_1.type(torch.DoubleTensor)
-    img_2 = img_2.type(torch.DoubleTensor)
 
-    img_1 = img_1.to(device)
-    img_2 = img_2.to(device)
+    nbands = ms.shape[-1]
+    p = ndi.convolve(pan, kernel, mode='nearest')
+    rho = np.zeros((search_win, search_win, nbands))
+    r = np.zeros(nbands)
+    c = np.copy(r)
 
-    img_1 = F.pad(img_1, (w, w, w, w))
-    img_2 = F.pad(img_2, (w, w, w, w))
+    for i in range(search_win):
+        for j in range(search_win):
+            rho[i, j, :] = np.mean(
+                xcorr(ms, np.expand_dims(p[i::ratio, j::ratio], -1), floor(ratio / 2)), axis=(0, 1))
 
-    img_1_cum = torch.cumsum(torch.cumsum(img_1, dim=-1), dim=-2)
-    img_2_cum = torch.cumsum(torch.cumsum(img_2, dim=-1), dim=-2)
+    max_value = np.amax(rho, axis=(0, 1))
 
-    img_1_mu = (img_1_cum[:, :, 2 * w:, 2 * w:] - img_1_cum[:, :, :-2 * w, 2 * w:] - img_1_cum[:, :, 2 * w:, :-2 * w] +
-                img_1_cum[:, :, :-2 * w, :-2 * w]) / (4 * w ** 2)
-    img_2_mu = (img_2_cum[:, :, 2 * w:, 2 * w:] - img_2_cum[:, :, :-2 * w, 2 * w:] - img_2_cum[:, :, 2 * w:, :-2 * w] +
-                img_2_cum[:, :, :-2 * w, :-2 * w]) / (4 * w ** 2)
+    for b in range(nbands):
+        x = rho[:, :, b]
+        max_value = x.max()
+        pos = np.where(x == max_value)
+        if len(pos[0]) != 1:
+            pos = (pos[0][0], pos[1][0])
+        pos = tuple(map(int, pos))
+        r[b] = pos[0]
+        c[b] = pos[1]
+        r = np.squeeze(r).astype(np.uint8)
+        c = np.squeeze(c).astype(np.uint8)
 
-    img_1 = img_1[:, :, w:-w, w:-w] - img_1_mu
-    img_2 = img_2[:, :, w:-w, w:-w] - img_2_mu
+    return r, c
 
-    img_1 = F.pad(img_1, (w, w, w, w))
-    img_2 = F.pad(img_2, (w, w, w, w))
 
-    i2_cum = torch.cumsum(torch.cumsum(img_1 ** 2, dim=-1), dim=-2)
-    j2_cum = torch.cumsum(torch.cumsum(img_2 ** 2, dim=-1), dim=-2)
-    ij_cum = torch.cumsum(torch.cumsum(img_1 * img_2, dim=-1), dim=-2)
+def resize_with_mtf(outputs, ms, pan, sensor, ratio=4, dim_cut=21):
+    """
+        Resize of Fused Image to MS scale, in according to the coregistration with the PAN.
+        If dim_cut is different by zero a cut is made on both outputs and ms, to discard possibly values affected by paddings.
 
-    sig2_ij_tot = (ij_cum[:, :, 2 * w:, 2 * w:] - ij_cum[:, :, :-2 * w, 2 * w:] - ij_cum[:, :, 2 * w:, :-2 * w] +
-                   ij_cum[:, :, :-2 * w, :-2 * w])
-    sig2_ii_tot = (i2_cum[:, :, 2 * w:, 2 * w:] - i2_cum[:, :, :-2 * w, 2 * w:] - i2_cum[:, :, 2 * w:, :-2 * w] +
-                   i2_cum[:, :, :-2 * w, :-2 * w])
-    sig2_jj_tot = (j2_cum[:, :, 2 * w:, 2 * w:] - j2_cum[:, :, :-2 * w, 2 * w:] - j2_cum[:, :, 2 * w:, :-2 * w] +
-                   j2_cum[:, :, :-2 * w, :-2 * w])
+        [Scarpa21]          Scarpa, Giuseppe, and Matteo Ciotola. "Full-resolution quality assessment for pansharpening.",
+                            arXiv preprint arXiv:2108.06144
 
-    sig2_ii_tot = torch.clip(sig2_ii_tot, ep, sig2_ii_tot.max().item())
-    sig2_jj_tot = torch.clip(sig2_jj_tot, ep, sig2_jj_tot.max().item())
+        Parameters
+        ----------
+        outputs : Numpy Array
+            Fused MultiSpectral img. Dimensions: H, W, Bands
+        ms : Numpy Array
+            MultiSpectral img. Dimensions: H, W, Bands
+        pan : Numpy Array
+            Panchromatic img. Dimensions: H, W, Bands
+        sensor : str
+            The name of the satellites which has provided the images.
+        ratio : int
+            Resolution scale which elapses between MS and PAN.
+        dim_cut : int
+            Cutting dimension for obtaining "valid" image to which apply the metrics
 
-    L = sig2_ij_tot / ((sig2_ii_tot * sig2_jj_tot) ** 0.5 + ep)
+        Return
+        ------
+        x : NumPy array
+            Fused MultiSpectral image, coregistered with the PAN, low-pass filtered and decimated. If dim_cut is different
+            by zero it is also cut
+        ms : NumPy array
+            MultiSpectral img. If dim_cut is different by zero it is cut.
+    """
 
-    return L
+    kernel = gen_mtf(ratio, sensor)
+    kernel = kernel.astype(np.float32)
+    nbands = kernel.shape[-1]
+    pad_size = floor((kernel.shape[0] - 1) / 2)
+
+    r, c = coregistration(ms, pan, kernel[:, :, 0], ratio)
+
+    kernel = np.moveaxis(kernel, -1, 0)
+    kernel = np.expand_dims(kernel, axis=1)
+
+    kernel = torch.from_numpy(kernel).type(torch.float32)
+
+    depthconv = nn.Conv2d(in_channels=nbands,
+                          out_channels=nbands,
+                          groups=nbands,
+                          kernel_size=kernel.shape,
+                          bias=False)
+    depthconv.weight.data = kernel
+    depthconv.weight.requires_grad = False
+    pad = nn.ReplicationPad2d(pad_size)
+
+    x = np.zeros(ms.shape, dtype=np.float32)
+
+    outputs = np.expand_dims(np.moveaxis(outputs, -1, 0), 0)
+    outputs = torch.from_numpy(outputs)
+
+    outputs = pad(outputs)
+    outputs = depthconv(outputs)
+
+    outputs = outputs.detach().cpu().numpy()
+    outputs = np.moveaxis(np.squeeze(outputs, 0), 0, -1)
+
+    for b in range(nbands):
+        x[:, :, b] = outputs[r[b]::ratio, c[b]::ratio, b]
+
+    if dim_cut != 0:
+        x = x[dim_cut:-dim_cut, dim_cut:-dim_cut, :]
+        ms = ms[dim_cut:-dim_cut, dim_cut:-dim_cut, :]
+
+    return x, ms
+
 
 def net_scope(kernel_size):
     """

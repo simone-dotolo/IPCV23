@@ -2,6 +2,8 @@ import numpy as np
 from math import floor
 from scipy import ndimage as ndi
 from math import ceil, log2
+from utils import resize_with_mtf
+from cross_correlation import xcorr
 
 def SAM(predictions, labels):
     '''
@@ -382,3 +384,214 @@ def Q2n(outputs, labels, q_block_size=32, q_shift=32):
     q2n_index = np.mean(q2n_index_map)
 
     return q2n_index.item(), q2n_index_map
+
+def ReproERGAS(outputs, ms, pan, sensor, ratio=4, dim_cut=0):
+    """
+        Reprojected Erreur Relative Globale Adimensionnelle de Synthèse (ERGAS).
+
+        [Scarpa21]          Scarpa, Giuseppe, and Matteo Ciotola. "Full-resolution quality assessment for pansharpening.",
+                            arXiv preprint arXiv:2108.06144
+
+        Parameters
+        ----------
+        outputs : Numpy Array
+            Fused MultiSpectral img. Dimensions: H, W, Bands
+        ms : Numpy Array
+            MultiSpectral img. Dimensions: H, W, Bands
+        pan : Numpy Array
+            Panchromatic img. Dimensions: H, W, Bands
+        sensor : str
+            The name of the satellites which has provided the images.
+        ratio : int
+            Resolution scale which elapses between MS and PAN.
+        dim_cut : int
+            Cutting dimension for obtaining "valid" image to which apply the metrics
+
+        Return
+        ------
+        R-ERGAS : float
+            The R-ERGAS index
+
+    """
+
+    outputs, ms = resize_with_mtf(outputs, ms, pan, sensor, ratio, dim_cut)
+    return ERGAS(outputs, ms, ratio)
+
+
+def ReproSAM(outputs, ms, pan, sensor, ratio=4, dim_cut=0):
+    """
+        Reprojected Spectral Angle Mapper (SAM).
+
+        [Scarpa21]          Scarpa, Giuseppe, and Matteo Ciotola. "Full-resolution quality assessment for pansharpening.",
+                            arXiv preprint arXiv:2108.06144
+
+        Parameters
+        ----------
+        outputs : Numpy Array
+            Fused MultiSpectral img. Dimensions: H, W, Bands
+        ms : Numpy Array
+            MultiSpectral img. Dimensions: H, W, Bands
+        pan : Numpy Array
+            Panchromatic img. Dimensions: H, W, Bands
+        sensor : str
+            The name of the satellites which has provided the images.
+        ratio : int
+            Resolution scale which elapses between MS and PAN.
+        dim_cut : int
+            Cutting dimension for obtaining "valid" image to which apply the metrics
+
+        Return
+        ------
+        R-SAM : float
+            The R-SAM index
+
+    """
+    outputs, ms = resize_with_mtf(outputs, ms, pan, sensor, ratio, dim_cut)
+    return SAM(outputs, ms)
+
+
+def ReproQ2n(outputs, ms, pan, sensor, ratio=4, q_block_size=32, q_shift=32, dim_cut=0):
+    """
+        Reprojected Q2n.
+
+        [Scarpa21]          Scarpa, Giuseppe, and Matteo Ciotola. "Full-resolution quality assessment for pansharpening.",
+                            arXiv preprint arXiv:2108.06144
+
+        Parameters
+        ----------
+        outputs : Numpy Array
+            Fused MultiSpectral img. Dimensions: H, W, Bands
+        ms : Numpy Array
+            MultiSpectral img. Dimensions: H, W, Bands
+        pan : Numpy Array
+            Panchromatic img. Dimensions: H, W, Bands
+        sensor : str
+            The name of the satellites which has provided the images.
+        ratio : int
+            Resolution scale which elapses between MS and PAN.
+        q_block_size : int
+            The windows size on which calculate the Q2n index
+        q_shift : int
+            The stride for Q2n index calculation
+        dim_cut : int
+            Cutting dimension for obtaining "valid" image to which apply the metrics
+
+        Return
+        ------
+        r_q2n : float
+            The R-Q2n index
+
+    """
+    outputs, ms = resize_with_mtf(outputs, ms, pan, sensor, ratio, dim_cut)
+    r_q2n, _ = Q2n(outputs, ms, q_block_size, q_shift)
+    return r_q2n
+
+
+def ReproQ(outputs, ms, pan, sensor, ratio=4, q_block_size=32, dim_cut=0):
+    """
+        Reprojected Q.
+
+        [Scarpa21]          Scarpa, Giuseppe, and Matteo Ciotola. "Full-resolution quality assessment for pansharpening.",
+                            arXiv preprint arXiv:2108.06144
+
+        Parameters
+        ----------
+        outputs : Numpy Array
+            Fused MultiSpectral img. Dimensions: H, W, Bands
+        ms : Numpy Array
+            MultiSpectral img. Dimensions: H, W, Bands
+        pan : Numpy Array
+            Panchromatic img. Dimensions: H, W, Bands
+        sensor : str
+            The name of the satellites which has provided the images.
+        ratio : int
+            Resolution scale which elapses between MS and PAN.
+        q_block_size : int
+            The windows size on which calculate the Q index
+        dim_cut : int
+            Cutting dimension for obtaining "valid" image to which apply the metrics
+
+        Return
+        ------
+        r_q : float
+            The R-Q index
+
+    """
+    outputs, ms = resize_with_mtf(outputs, ms, pan, sensor, ratio, dim_cut)
+    r_q = Q(outputs, ms, q_block_size)
+    return r_q
+
+
+def ReproMetrics(outputs, ms, pan, sensor, ratio=4, q_block_size=32, q_shift=32, dim_cut=0):
+    """
+        Computation of all reprojected metrics.
+
+        [Scarpa21]          Scarpa, Giuseppe, and Matteo Ciotola. "Full-resolution quality assessment for pansharpening.",
+                            arXiv preprint arXiv:2108.06144
+
+        Parameters
+        ----------
+        outputs : Numpy Array
+            Fused MultiSpectral img. Dimensions: H, W, Bands
+        ms : Numpy Array
+            MultiSpectral img. Dimensions: H, W, Bands
+        pan : Numpy Array
+            Panchromatic img. Dimensions: H, W, Bands
+        sensor : str
+            The name of the satellites which has provided the images.
+        ratio : int
+            Resolution scale which elapses between MS and PAN.
+        q_block_size : int
+            The windows size on which calculate the Q2n and Q index
+        q_shift : int
+            The stride for Q2n index calculation
+        dim_cut : int
+            Cutting dimension for obtaining "valid" image to which apply the metrics
+
+        Return
+        ------
+        r_q2n : float
+            The R-Q2n index
+        r_q : float
+            The R-Q index
+        R-SAM : float
+            The R-SAM index
+        R-ERGAS : float
+            The R-ERGAS index
+
+    """
+    outputs, ms = resize_with_mtf(outputs, ms, pan, sensor, ratio, dim_cut)
+    q2n, _ = Q2n(outputs, ms, q_block_size, q_shift)
+    q = Q(outputs, ms, q_block_size)
+    sam = SAM(outputs, ms)
+    ergas = ERGAS(outputs, ms, ratio)
+    return q2n, q, sam, ergas
+
+
+def DRho(outputs, pan, sigma=4):
+    """
+        Spatial Quality Index based on local cross-correlation.
+
+        [Scarpa21]          Scarpa, Giuseppe, and Matteo Ciotola. "Full-resolution quality assessment for pansharpening.",
+                            arXiv preprint arXiv:2108.06144
+
+        Parameters
+        ----------
+        outputs : Numpy Array
+            Fused MultiSpectral img. Dimensions: H, W, Bands
+        pan : Numpy Array
+            Panchromatic img. Dimensions: H, W, Bands
+        sigma : int
+            The windows size on which calculate the Drho index; Accordingly with the paper it should be the
+            resolution scale which elapses between MS and PAN.
+
+        Return
+        ------
+        d_rho : float
+            The d_rho index
+
+    """
+    half_width = ceil(sigma / 2)
+    rho = np.clip(xcorr(outputs, pan, half_width), a_min=-1.0, a_max=1.0)
+    d_rho = 1.0 - rho
+    return np.mean(d_rho).item()
