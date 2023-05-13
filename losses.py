@@ -1,9 +1,11 @@
+from math import floor, ceil
+
 import numpy as np
 import torch
 import torch.nn as nn
-from math import floor, ceil
-from spectral_tools import gen_mtf
+
 from cross_correlation import xcorr_torch as ccorr
+from spectral_tools import gen_mtf
 
 class SpectralLossNocorr(nn.Module):
     def __init__(self, mtf, net_crop, pan_shape, ratio, device, mask=None):
@@ -94,8 +96,9 @@ class StructuralLoss(nn.Module):
         return Lxcorr, Lxcorr_no_weights.item()
     
 class SpectralStructuralLoss(nn.Module):
-
-    # Linear combination of SpectralLoss and StructuralLoss
+    '''
+        Combination of StrucuralLoss and SpectralLoss
+    '''
 
     def __init__(self, img_pan_shape, device, sensor):
         super().__init__()
@@ -110,7 +113,6 @@ class SpectralStructuralLoss(nn.Module):
         self.struct_loss = StructuralLoss(sensor.ratio, self.device)
 
     def forward(self, outputs, labels):
-
         labels_spec = labels[:,:-1,:,:]
         labels_struct = labels[:,-1,:,:].unsqueeze(dim=1)
         

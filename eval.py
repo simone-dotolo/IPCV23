@@ -1,14 +1,14 @@
 import argparse
+
 import torch
-from sensor import Sensor
-from networks import APNN
-from data import PAN_Dataset
-from metrics import SAM, ERGAS, Q, Q2n, ReproMetrics, DRho
 from tqdm.auto import tqdm
 
-def eval(args):
+from data import PAN_Dataset
+from metrics import SAM, ERGAS, Q, Q2n, ReproMetrics, DRho
+from networks import APNN
+from sensor import Sensor
 
-    # Device agnostic code
+def eval(args):
     use_gpu = args.use_gpu
     device = 'cuda' if (torch.cuda.is_available() and use_gpu) else 'cpu'
 
@@ -46,14 +46,12 @@ def eval(args):
         if full_resolution:
             for X, I_MS, I_PAN in tqdm(test_dataset):
                 
-                #X, I_MS, I_PAN = X.unsqueeze(dim=0).to(device), I_MS.unsqueeze(dim=0).to(device), I_PAN.unsqueeze(dim=0).to(device)
                 X = X.unsqueeze(dim=0).to(device)
 
                 output = model(X)
 
+                # Moving tensors to cpu and converting to numpy arrays
                 output = torch.permute(output.squeeze(dim=0), [2, 1, 0]).detach().cpu().numpy()
-                #I_MS = torch.permute(I_MS.squeeze(dim=0), [2, 1, 0]).detach().cpu().numpy()
-                #I_PAN = I_PAN.squeeze(dim=(0,1)).detach().cpu().numpy()
                 I_MS = torch.permute(I_MS, [2, 1, 0]).detach().cpu().numpy()
                 I_PAN = I_PAN.squeeze(dim=0).detach().cpu().numpy()
 
@@ -76,12 +74,10 @@ def eval(args):
         else:
             for X, y in tqdm(test_dataset):
                 
-                #X, y = X.unsqueeze(dim=0).to(device), y.unsqueeze(dim=0).to(device)
                 X = X.unsqueeze(dim=0).to(device)
                 output = model(X)
 
                 output = torch.permute(output.squeeze(dim=0), [2, 1, 0]).detach().cpu().numpy()
-                #y = torch.permute(y.squeeze(dim=0), [2, 1, 0]).detach().cpu().numpy()
                 y = torch.permute(y, [2, 1, 0]).detach().cpu().numpy()
 
                 SAM_value += SAM(output, y)
@@ -97,7 +93,6 @@ def eval(args):
 
 
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-m', '--model', type=str, help='Model to train', required=True, choices=['APNN'])

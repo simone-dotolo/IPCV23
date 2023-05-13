@@ -1,15 +1,16 @@
 import argparse
+
 import torch
 import numpy as np
+from matplotlib import pyplot as plt
+from scipy.io import loadmat, savemat
+from skimage.transform import rescale
+
 from networks import APNN
 from sensor import Sensor
-from skimage.transform import rescale
-from scipy.io import loadmat, savemat
-from matplotlib import pyplot as plt
 
 
 def main(args):
-
     model_name = args.model
     sensor_name = args.sensor
     input_path = args.input
@@ -64,7 +65,6 @@ def main(args):
     savemat(output_path + 'pansharpened.mat', {'I_MS': output})
 
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-m', '--model', type=str, help='Model to train', required=True, choices=['APNN'])

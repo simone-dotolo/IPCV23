@@ -3,7 +3,6 @@ from utils import net_scope
 class Sensor:
 
     def __init__(self, sensor):
-
         self.sensor = sensor
         self.ratio = 4
 

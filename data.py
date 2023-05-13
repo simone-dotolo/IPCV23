@@ -1,21 +1,27 @@
 import os
+
 import numpy as np
 import torch
-from torch.utils.data import Dataset
 from scipy.io import loadmat
 from skimage.transform import rescale
+from torch.utils.data import Dataset
 
 class PAN_Dataset(Dataset):
     
     def __init__(self, images_dir, sensor, full_resolution=False, eval=False):
-        
         self.image_paths = [os.path.join(images_dir, image_id) for image_id in sorted(os.listdir(images_dir))]
         self.sensor = sensor
         self.full_resolution = full_resolution
         self.eval = eval
 
     def __getitem__(self, index):
+        '''
+            Loads and returns a sample from the dataset at the given index.
 
+            For full-resolution training, returns the MS image upsampled, stacked with the PAN image at full-resolution as input, same for the label
+            For full-resolution training, returns the MS image upsampled, stacked with the PAN image at full-resolution as input, MS and PAN images as labels
+            For reduced-resolution training/evaluation, returns  I_in generated using Wald's protocol, and the MS image as label
+        '''
         image = loadmat(self.image_paths[index])
 
         if self.full_resolution:

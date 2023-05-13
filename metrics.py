@@ -1,9 +1,10 @@
+from math import ceil, floor, log2
+
 import numpy as np
-from math import floor
 from scipy import ndimage as ndi
-from math import ceil, log2
-from utils import resize_with_mtf
+
 from cross_correlation import xcorr
+from utils import resize_with_mtf
 
 def SAM(predictions, labels):
     '''

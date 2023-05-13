@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.ndimage.filters as ft
 import torch
+
 from cross_correlation import xcorr
 
 '''

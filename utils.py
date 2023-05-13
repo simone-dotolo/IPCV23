@@ -1,11 +1,13 @@
 from math import floor, log
+
 import numpy as np
 import torch
 import torch.nn.functional as F
-from torch import nn
 from scipy import ndimage as ndi
-from spectral_tools import gen_mtf
+from torch import nn
+
 from cross_correlation import xcorr
+from spectral_tools import gen_mtf
 
 def interp23tap(img, ratio):
     """

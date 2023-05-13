@@ -1,23 +1,22 @@
-import torch
-from torch import nn
-from torch.utils.data import DataLoader
-from data import PAN_Dataset
-from sensor import Sensor
-from losses import SpectralStructuralLoss
-from early_stopper import EarlyStopper 
-from networks import APNN
-from tqdm.auto import tqdm
-import numpy as np
 import argparse
 import os
 
-def train(args):
+import numpy as np
+import torch
+from torch import nn
+from torch.utils.data import DataLoader
+from tqdm.auto import tqdm
 
-    # Device agnostic code
+from data import PAN_Dataset
+from early_stopper import EarlyStopper 
+from losses import SpectralStructuralLoss
+from networks import APNN
+from sensor import Sensor
+
+def train(args):
     use_gpu = args.use_gpu
     device = 'cuda' if (torch.cuda.is_available() and use_gpu) else 'cpu'
     
-    # Sensor
     sensor_name = args.sensor
     s = Sensor(sensor=sensor_name)
 
@@ -162,9 +161,7 @@ def train(args):
             print(f'{early_stopper.patience} epochs without improvement. Early stopping...\n')
             break
 
-
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--model', type=str, help='Model to train', required=True, choices=['APNN'])
     parser.add_argument('-s', '--sensor', type=str, help='Sensor that acquired the image', required=True, choices=['QB', 'GE1', 'GeoEye1', 'WV2', 'WV3', 'Ikonos', 'IKONOS'])
