@@ -1,7 +1,7 @@
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-  <a href="https://github.com/simone-dotolo/IPCV23">
+  <a href="https://github.com/simone-dotolo/PantasticSharpening">
     <img src="images/logo.png" alt="Logo" width="240" height="135">
   </a>
 
@@ -25,7 +25,7 @@ _You should install Anaconda and Git before continuing._
 
 1. Clone the repo
    ```sh
-   git clone https://github.com/simone-dotolo/IPCV23.git
+   git clone https://github.com/simone-dotolo/PantasticSharpening.git
    ```
 2. Create the virtual environment with the aaa.yml
    ```sh
