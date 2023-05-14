@@ -2,7 +2,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/simone-dotolo/IPCV23">
-    <img src="images/logo.png" alt="Logo" width="80" height="80">
+    <img src="images/logo.png" alt="Logo" width="240" height="135">
   </a>
 
   <h3 align="center">Pan-tastic Images and How to Sharpen Them</h3>
