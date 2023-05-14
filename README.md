@@ -27,7 +27,7 @@ _You should install Anaconda and Git before continuing._
    ```sh
    git clone https://github.com/simone-dotolo/PantasticSharpening.git
    ```
-2. Create the virtual environment with the aaa.yml
+2. Create the virtual environment with the pantastic.yml
    ```sh
    conda env create -n pantastic -f pantastic.yml
    ```
@@ -40,7 +40,7 @@ _You should install Anaconda and Git before continuing._
    ```
 2. Try it!
    ```sh
-   python3 pansharpening.py -m APNN -s WV3 -i example/WV3_example.mat -o ./Output_Example -w weights/APNN_weights.pth
+   python3 pansharpening.py -m APNN -s WV3 -i example/WV3_example.mat -o ./ -w weights/APNN_weights.pth
    ```
    
 <!-- LICENSE -->
