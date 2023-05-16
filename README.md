@@ -1,10 +1,7 @@
-<!-- PROJECT LOGO -->
 <br />
 <div align="center">
-  <a href="https://github.com/simone-dotolo/PantasticSharpening">
-    <img src="images/logo.png" alt="Logo" width="240" height="135">
-  </a>
-
+  
+  <img src="https://github.com/simone-dotolo/PantasticSharpening/blob/main/media/pansharpening.gif"/>
   <h3 align="center">Pan-tastic Images and How to Sharpen Them</h3>
 
 </div>
