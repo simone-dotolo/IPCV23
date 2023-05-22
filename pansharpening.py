@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 from scipy.io import loadmat, savemat
 from skimage.transform import rescale
 
-from networks import APNN
+from networks import APNN, DRPNN
 from sensor import Sensor
 
 
@@ -25,6 +25,8 @@ def main(args):
     if model_name == 'APNN':
         model = APNN(input_channels=s.nbands+1,
                      kernels=s.kernels).to(device)
+    elif model_name == 'DRPNN':
+        model = DRPNN(input_channels=s.nbands+1).to(device)
 
     model.load_state_dict(torch.load(f=weights_path,
                                      map_location=torch.device(device)))
@@ -67,7 +69,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-m', '--model', type=str, help='Model to train', required=True, choices=['APNN'])
+    parser.add_argument('-m', '--model', type=str, help='Model to train', required=True, choices=['APNN', 'DRPNN'])
     parser.add_argument('-s', '--sensor', type=str, help='Sensor that acquired the image', required=True, choices=['QB', 'GE1', 'GeoEye1', 'WV2', 'WV3', 'Ikonos', 'IKONOS'])
     parser.add_argument('-i', '--input', type=str, help='Path to image that will be pansharpened', required=True)
     parser.add_argument('-o', '--output_path', type=str, help='Path to output path', required=True)
