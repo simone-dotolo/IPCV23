@@ -6,6 +6,7 @@ import torch.nn as nn
 
 from cross_correlation import xcorr_torch as ccorr
 from spectral_tools import gen_mtf
+from utils import local_corr_mask
 
 class SpectralLossNocorr(nn.Module):
     def __init__(self, mtf, net_crop, pan_shape, ratio, device, mask=None):
@@ -104,6 +105,7 @@ class SpectralStructuralLoss(nn.Module):
         super().__init__()
         self.device = device
         self.beta = sensor.beta
+        self.sensor = sensor
         self.spec_loss = SpectralLossNocorr(gen_mtf(sensor.ratio,
                                                     sensor.sensor),
                                             sensor.net_scope,
@@ -112,8 +114,13 @@ class SpectralStructuralLoss(nn.Module):
                                             self.device)
         self.struct_loss = StructuralLoss(sensor.ratio, self.device)
 
-    def forward(self, outputs, labels):
+    def forward(self, outputs, labels, inp):
         labels_spec = labels[:,:-1,:,:]
         labels_struct = labels[:,-1,:,:].unsqueeze(dim=1)
+        threshold = local_corr_mask(inp.to('cpu'),
+                                    self.sensor.ratio,
+                                    self.sensor.sensor,
+                                    self.device,
+                                    8).float()
         
-        return self.spec_loss(outputs, labels_spec) + self.beta * self.struct_loss(outputs, labels_struct, 0)[0]
+        return self.spec_loss(outputs, labels_spec) + self.beta * self.struct_loss(outputs, labels_struct, threshold)[0]

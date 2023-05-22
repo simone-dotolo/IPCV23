@@ -117,7 +117,10 @@ def train(args):
 
             output = model(X)
 
-            loss = loss_fn(output, y)
+            if full_resolution:
+                loss = loss_fn(output, y, X)
+            else:
+                loss = loss_fn(output, y)
             train_loss += loss.item()
 
             optimizer.zero_grad()
@@ -137,7 +140,10 @@ def train(args):
 
                 output = model(X)
 
-                loss = loss_fn(output, y)
+                if full_resolution:
+                    loss = loss_fn(output, y, X)
+                else:
+                    loss = loss_fn(output, y)
                 valid_loss += loss.item()
 
         if lr_scheduler:
